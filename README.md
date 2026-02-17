@@ -24,6 +24,24 @@ Curve-Tool 是一个简易的数据曲线计算工具，使用函数式编程的
 
 ## 快速开始
 
+### 构建与依赖
+
+本项目已工程化为 Maven 工程，可直接运行：
+
+```bash
+mvn test
+```
+
+如需以依赖方式使用（示例坐标，版本请按实际发布调整）：
+
+```xml
+<dependency>
+  <groupId>io.github.chocohql</groupId>
+  <artifactId>curve-tool</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+</dependency>
+```
+
 ### 创建曲线
 
 ICurve 接口定义了曲线计算方法，它继承了 List 。Curve 类是该接口的通用实现类，它本身是对 ArrayList 的增强。
@@ -109,6 +127,59 @@ curve1
                 Data1::setVal)
 ```
 
+### 对齐失败策略（更可控）
+
+原有 `biProcess` 在长度不一致时会默认跳过计算（保持兼容）。如需显式策略，可使用带 `IndexAlignmentPolicy` 的重载：
+
+```java
+curve1.biProcess(curve2,
+        IndexAlignmentPolicy.TRUNCATE,
+        (d1, d2) -> d1.getVal() + d2.getVal(),
+        Data1::setVal);
+```
+
+可选策略：
+
+- `SKIP_IF_MISMATCH`：默认行为，长度不一致直接跳过
+- `THROW`：长度不一致直接抛异常
+- `TRUNCATE`：按最短长度截断计算
+- `PAD_NULL`：右侧不足时按 null 补齐（多余右侧忽略）
+
+### 按 timestamp/key 对齐叠加（解决“严格下标对齐”限制）
+
+当两条曲线的下标无法严格对齐，但可以通过 timestamp（或其他 key）匹配时，可使用 `joinByKeyProcess`：
+
+```java
+curve1.joinByKeyProcess(curve2,
+        Data1::getTimestamp,
+        Data2::getTimestamp,
+        KeyJoinType.LEFT,
+        DuplicateKeyPolicy.THROW,
+        MissingPointPolicy.SKIP,
+        (d1, d2) -> d1.getVal() + d2.getVal(),
+        Data1::setVal);
+```
+
+如果你希望拿到 join 结果用于进一步处理（而不是原地写回），可使用：
+
+```java
+ICurve<KeyJoinRow<Long, Data1, Data2>, Object> joined =
+        CurveJoins.joinByKey(curve1, curve2, Data1::getTimestamp, Data2::getTimestamp, KeyJoinType.FULL, DuplicateKeyPolicy.THROW);
+```
+
+### 常用算子（更贴近真实处理需求）
+
+在 `ICurve` 上提供了一批常用、非冷门的算子，方便更偏“结果导向”的处理：
+
+```java
+ICurve<Integer, Object> out = new Curve<Integer, Integer>(Arrays.asList(1,2,3,4))
+        .filter(x -> x % 2 == 0)
+        .map(x -> x * 10);
+
+double ma = curve.movingAverage(Data::getVal, 10).get(curve.size() - 1);
+ICurve<Double, Double> diff = curve.diff(Data::getVal);
+```
+
 ### 创建分组曲线
 
 如果你需要将数据分为多条曲线（分组/维度），且需要对不同组的曲线进行独立的处理，那么可以使用分组曲线，它可以帮你划分数据集隔离执行相同的 ICurve 操作。
@@ -176,6 +247,18 @@ curveGroup1.forCurve(curveGroup2, (tag, curve1, curve2) -> {
             curve1.process(d ->{/*TODO*/});
             curve2.process(d ->{/*TODO*/});
         });
+```
+
+### 分组 join 策略（更安全）
+
+分组叠加默认按左侧 key 遍历（保持兼容）。如需 INNER/FULL 或缺失 key 的处理策略，可使用重载：
+
+```java
+curveGroup1.biProcess(curveGroup2,
+        GroupJoinType.INNER,
+        MissingCurvePolicy.THROW,
+        (tag, d1, d2) -> d1.getVal() + d2.getVal(),
+        Data1::setVal);
 ```
 
 ## 关系图

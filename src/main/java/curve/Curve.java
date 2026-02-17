@@ -1,6 +1,6 @@
 package curve;
 
-import java.util.*;
+import java.util.List;
 import java.util.function.*;
 
 public class Curve<T, V> extends AbstractCurve<T, V> {

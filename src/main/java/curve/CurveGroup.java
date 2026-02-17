@@ -6,7 +6,10 @@ import function.TriPredicate;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.*;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class CurveGroup<K, T, V> extends AbstractCurveGroup<K, T, V> {
