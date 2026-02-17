@@ -1,8 +1,8 @@
 package curve;
 
+import function.TriConsumer;
 import function.TriFunction;
 import function.TriPredicate;
-import function.TriConsumer;
 
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
